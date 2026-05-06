@@ -7,10 +7,19 @@ Starts the server with:
 """
 
 import logging
+import sys
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+
+# Allow running Uvicorn from inside the backend folder.
+# The project uses absolute imports like backend.routes, so we ensure
+# the repository root is on sys.path before importing internal modules.
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from backend.database.connection import engine
 from backend.database.models import Base
@@ -119,3 +128,5 @@ async def health():
             "gemini_chatbot": "standby",
         },
     }
+
+
