@@ -4,7 +4,6 @@ import { useAuth } from '../context/AuthContext';
 import { getStudentDashboard, getActiveSessions } from '../services/api';
 import StatsCard from '../components/StatsCard';
 import HealthBar from '../components/HealthBar';
-import AttendanceHeatmap from '../components/AttendanceHeatmap';
 import StatusFeed from '../components/StatusFeed';
 import ChatbotSidebar from '../components/ChatbotSidebar';
 import Navbar from '../components/Navbar';
@@ -18,9 +17,7 @@ export default function StudentDashboard() {
 
   const studentId = user?.user?.student_id || 'STU001';
 
-  useEffect(() => {
-    loadDashboard();
-  }, []);
+  useEffect(() => { loadDashboard(); }, []);
 
   const loadDashboard = async () => {
     try {
@@ -31,7 +28,7 @@ export default function StudentDashboard() {
       setDashboard(dashRes.data);
       setActiveSessions(sessRes.data);
     } catch (err) {
-      console.error('Dashboard load error:', err);
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -41,9 +38,9 @@ export default function StudentDashboard() {
     return (
       <>
         <Navbar />
-        <div style={styles.loadingWrap}>
-          <div className="spinner" />
-          <p style={{ color: '#8b95b3', marginTop: '16px' }}>Loading dashboard...</p>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
+          <div className="spinner w-6 h-6" />
+          <p className="text-sm text-gray-600">Loading dashboard…</p>
         </div>
       </>
     );
@@ -54,105 +51,128 @@ export default function StudentDashboard() {
   return (
     <>
       <Navbar />
-      <div className="animated-bg" />
-
-      <div className="page-container">
-        {/* Welcome Header */}
-        <div className="animate-fade-in-up" style={styles.welcomeSection}>
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* Header */}
+        <div className="flex items-start justify-between flex-wrap gap-4 mb-8 animate-fade-in-up">
           <div>
-            <h1 style={styles.welcomeTitle}>
-              Welcome back, <span className="text-gradient">{dashboard?.student?.name || 'Student'}</span>
+            <p className="text-xs text-gray-600 font-medium uppercase tracking-wider mb-1">Student Portal</p>
+            <h1 className="text-2xl font-bold text-white tracking-tight">
+              {dashboard?.student?.name || 'Dashboard'}
             </h1>
-            <p style={styles.welcomeSub}>
-              {dashboard?.student?.department} • Semester {dashboard?.student?.semester}
+            <p className="text-sm text-gray-500 mt-1">
+              {dashboard?.student?.department}
+              {dashboard?.student?.semester && ` · Semester ${dashboard.student.semester}`}
             </p>
           </div>
-
           {activeSessions.length > 0 && (
-            <button
-              className="btn btn-primary btn-lg"
-              onClick={() => navigate('/scan')}
-              id="mark-attendance-btn"
-            >
-              📷 Mark Attendance
+            <button id="mark-attendance-btn" onClick={() => navigate('/scan')}
+              className="btn-primary btn-lg rounded-xl flex items-center gap-2">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                <circle cx="12" cy="13" r="4" />
+              </svg>
+              Mark Attendance
             </button>
           )}
         </div>
 
-        {/* Active Session Alert */}
+        {/* Active session banner */}
         {activeSessions.length > 0 && (
-          <div className="animate-fade-in-up" style={styles.activeAlert}>
-            <div style={styles.alertPulse} />
-            <div>
-              <div style={styles.alertTitle}>🟢 Active Session Available</div>
-              <div style={styles.alertText}>
-                {activeSessions[0].subject_name} — {activeSessions[0].faculty_name}
-              </div>
+          <div className="mb-6 animate-fade-in-up flex items-center gap-4 px-5 py-3.5 rounded-xl border"
+            style={{ background: 'rgba(16,185,129,0.05)', borderColor: 'rgba(16,185,129,0.15)' }}>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-emerald-400"
+                style={{ animation: 'pulse 2s ease-in-out infinite' }} />
+              <span className="text-sm font-semibold text-emerald-400">Active Session</span>
             </div>
-            <button className="btn btn-success btn-sm" onClick={() => navigate('/scan')}>
+            <p className="text-sm text-gray-500 flex-1 truncate">
+              {activeSessions[0].subject_name}
+              {activeSessions[0].faculty_name && ` · ${activeSessions[0].faculty_name}`}
+            </p>
+            <button onClick={() => navigate('/scan')}
+              className="btn-success btn-sm rounded-lg text-xs flex-shrink-0">
               Scan Now →
             </button>
           </div>
         )}
 
-        {/* Stats Row */}
-        <div className="grid-4 stagger" style={{ marginTop: '24px' }}>
-          <StatsCard icon="📚" value={stats.total_sessions} label="Total Classes" color="blue" />
-          <StatsCard icon="✅" value={stats.attended} label="Attended" color="emerald" />
-          <StatsCard icon="❌" value={stats.missed} label="Missed" color="rose" />
+        {/* Stats */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6 stagger">
           <StatsCard
-            icon="📊"
-            value={`${stats.percentage}%`}
-            label="Attendance Rate"
-            color={stats.percentage >= 75 ? 'emerald' : stats.percentage >= 60 ? 'amber' : 'rose'}
-          />
+            icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>}
+            value={stats.total_sessions} label="Total Classes" color="blue" />
+          <StatsCard
+            icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+            value={stats.attended} label="Attended" color="green" />
+          <StatsCard
+            icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>}
+            value={stats.missed} label="Missed" color="rose" />
+          <StatsCard
+            icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>}
+            value={`${stats.percentage}%`} label="Attendance Rate"
+            color={stats.percentage >= 75 ? 'green' : stats.percentage >= 60 ? 'amber' : 'rose'} />
         </div>
 
-        {/* Health Bar */}
-        <div className="glass-card animate-fade-in-up" style={{ padding: '24px', marginTop: '24px' }}>
+        {/* Health bar */}
+        <div className="card-static rounded-xl p-5 mb-6 animate-fade-in-up">
           <HealthBar percentage={stats.percentage} threshold={75} />
         </div>
 
-        {/* Heatmap + Live Feed */}
-        <div style={styles.twoCol}>
-          <div className="glass-card animate-fade-in-up" style={{ padding: '24px', flex: 2 }}>
-            <AttendanceHeatmap data={dashboard?.heatmap || {}} />
-          </div>
-          <div className="glass-card animate-fade-in-up" style={{ padding: '24px', flex: 1 }}>
-            <StatusFeed />
-          </div>
-        </div>
+        {/* Activity + Feed */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Recent activity */}
+          <div className="lg:col-span-2 card-static rounded-xl p-5 animate-fade-in-up">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-gray-200">Recent Activity</h2>
+              <span className="text-xs text-gray-600">
+                {(dashboard?.recent_activity || []).length} records
+              </span>
+            </div>
 
-        {/* Recent Activity */}
-        <div className="glass-card animate-fade-in-up" style={{ padding: '24px', marginTop: '24px' }}>
-          <h3 style={styles.sectionTitle}>📋 Recent Activity</h3>
-          <div style={styles.activityList}>
             {(dashboard?.recent_activity || []).length === 0 ? (
-              <div style={styles.emptyState}>
-                <span style={{ fontSize: '2rem' }}>📭</span>
-                <p style={{ color: '#8b95b3' }}>No attendance records yet</p>
+              <div className="flex flex-col items-center justify-center py-12 gap-3 text-center">
+                <div className="w-10 h-10 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4B5563" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                </div>
+                <p className="text-sm text-gray-500 font-medium">No attendance records yet</p>
+                <p className="text-xs text-gray-600">Scan into a class to see your records here</p>
               </div>
             ) : (
-              dashboard.recent_activity.map((item, i) => (
-                <div key={i} style={styles.activityItem}>
-                  <div style={styles.activityIcon}>
-                    {item.marked_by === 'biometric' ? '🔬' : '✋'}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={styles.activitySubject}>{item.subject}</div>
-                    <div style={styles.activityMeta}>
-                      {item.faculty} • {item.marked_by}
-                      {item.confidence && ` • ${(item.confidence * 100).toFixed(0)}% match`}
+              <div className="flex flex-col divide-y divide-white/[0.04]">
+                {dashboard.recent_activity.map((item, i) => (
+                  <div key={i} className="flex items-center gap-3 py-3">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-xs ${
+                      item.marked_by === 'biometric'
+                        ? 'bg-blue-500/10 border border-blue-500/20 text-blue-400'
+                        : 'bg-violet-500/10 border border-violet-500/20 text-violet-400'
+                    }`}>
+                      {item.marked_by === 'biometric' ? '◉' : '✋'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-200 truncate">{item.subject}</p>
+                      <p className="text-xs text-gray-600 mt-0.5">
+                        {item.faculty && `${item.faculty} · `}
+                        {item.marked_by === 'biometric' ? 'Biometric' : 'Manual'}
+                        {item.confidence && ` · ${(item.confidence * 100).toFixed(0)}%`}
+                      </p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                      <span className="badge badge-green">Present</span>
+                      <span className="text-xs text-gray-600">
+                        {item.timestamp ? new Date(item.timestamp).toLocaleDateString() : '—'}
+                      </span>
                     </div>
                   </div>
-                  <div style={styles.activityTime}>
-                    {item.timestamp
-                      ? new Date(item.timestamp).toLocaleDateString()
-                      : '—'}
-                  </div>
-                </div>
-              ))
+                ))}
+              </div>
             )}
+          </div>
+
+          {/* Live Feed */}
+          <div className="card-static rounded-xl p-5 animate-fade-in-up">
+            <StatusFeed />
           </div>
         </div>
       </div>
@@ -161,107 +181,3 @@ export default function StudentDashboard() {
     </>
   );
 }
-
-const styles = {
-  loadingWrap: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: '60vh',
-  },
-  welcomeSection: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: '16px',
-  },
-  welcomeTitle: {
-    fontSize: '1.75rem',
-    fontWeight: 800,
-    letterSpacing: '-0.02em',
-  },
-  welcomeSub: {
-    fontSize: '0.9rem',
-    color: '#8b95b3',
-    marginTop: '4px',
-  },
-  activeAlert: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '16px',
-    padding: '16px 20px',
-    marginTop: '20px',
-    background: 'rgba(16, 185, 129, 0.06)',
-    border: '1px solid rgba(16, 185, 129, 0.15)',
-    borderRadius: '12px',
-  },
-  alertPulse: {
-    width: '10px',
-    height: '10px',
-    borderRadius: '50%',
-    background: '#10b981',
-    animation: 'pulse 1.5s ease-in-out infinite',
-    flexShrink: 0,
-  },
-  alertTitle: {
-    fontSize: '0.85rem',
-    fontWeight: 700,
-    color: '#10b981',
-  },
-  alertText: {
-    fontSize: '0.8rem',
-    color: '#8b95b3',
-  },
-  twoCol: {
-    display: 'flex',
-    gap: '20px',
-    marginTop: '24px',
-    flexWrap: 'wrap',
-  },
-  sectionTitle: {
-    fontSize: '1rem',
-    fontWeight: 700,
-    color: '#f0f4ff',
-    marginBottom: '16px',
-  },
-  activityList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '8px',
-  },
-  activityItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    padding: '12px',
-    background: 'rgba(255,255,255,0.03)',
-    borderRadius: '10px',
-    border: '1px solid rgba(255,255,255,0.04)',
-  },
-  activityIcon: { fontSize: '1.25rem' },
-  activitySubject: {
-    fontSize: '0.85rem',
-    fontWeight: 600,
-    color: '#f0f4ff',
-  },
-  activityMeta: {
-    fontSize: '0.7rem',
-    color: '#8b95b3',
-    marginTop: '2px',
-  },
-  activityTime: {
-    fontSize: '0.7rem',
-    color: '#8b95b3',
-    flexShrink: 0,
-  },
-  emptyState: {
-    textAlign: 'center',
-    padding: '32px',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '8px',
-  },
-};

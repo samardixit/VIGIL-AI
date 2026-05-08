@@ -4,12 +4,12 @@ import { useAuth } from '../context/AuthContext';
 import { loginStudent, loginFaculty } from '../services/api';
 
 export default function LoginPage() {
-  const [role, setRole] = useState('student');
+  const [role, setRole]           = useState('student');
   const [studentId, setStudentId] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [email, setEmail]         = useState('');
+  const [password, setPassword]   = useState('');
+  const [error, setError]         = useState('');
+  const [loading, setLoading]     = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -17,7 +17,6 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
     setLoading(true);
-
     try {
       let res;
       if (role === 'student') {
@@ -25,168 +24,171 @@ export default function LoginPage() {
       } else {
         res = await loginFaculty(email, password);
       }
-
       const { access_token, role: userRole, user: userData } = res.data;
       login(access_token, { role: userRole, user: userData, name: `${userData.first_name} ${userData.last_name}` });
       navigate(userRole === 'faculty' ? '/teacher' : '/student');
     } catch (err) {
-      setError(err.response?.data?.detail || 'Login failed. Please try again.');
+      setError(err.response?.data?.detail || 'Login failed. Please check your credentials.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={styles.page}>
-      {/* Animated background orbs */}
-      <div className="animated-bg" />
+    <div className="min-h-screen flex items-center justify-center px-4" style={{ background: '#0B1020' }}>
 
-      {/* Floating particles */}
-      <div style={styles.particles}>
-        {[...Array(6)].map((_, i) => (
-          <div
-            key={i}
-            style={{
-              ...styles.particle,
-              width: `${40 + i * 20}px`,
-              height: `${40 + i * 20}px`,
-              top: `${10 + i * 15}%`,
-              left: `${5 + i * 16}%`,
-              animationDelay: `${i * 2}s`,
-              animationDuration: `${15 + i * 3}s`,
-            }}
-          />
-        ))}
+      {/* Subtle bg gradient blobs */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full opacity-[0.06]"
+          style={{ background: 'radial-gradient(circle, #3B82F6, transparent)' }} />
+        <div className="absolute -bottom-40 -left-40 w-96 h-96 rounded-full opacity-[0.04]"
+          style={{ background: 'radial-gradient(circle, #8B5CF6, transparent)' }} />
       </div>
 
-      <div style={styles.container}>
-        {/* Left branding */}
-        <div style={styles.brandSide} className="animate-fade-in-up">
-          <div style={styles.logoLarge}>
-            <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="url(#loginGrad)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <defs>
-                <linearGradient id="loginGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#00d4ff" />
-                  <stop offset="100%" stopColor="#7c3aed" />
-                </linearGradient>
-              </defs>
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-            </svg>
+      <div className="relative z-10 w-full max-w-4xl flex flex-col lg:flex-row items-center gap-16">
+
+        {/* ── Left: Branding ─────────────────────────────── */}
+        <div className="flex-1 max-w-sm animate-fade-in-up">
+          {/* Logo */}
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+              <ShieldIcon />
+            </div>
+            <span className="text-xl font-bold text-white tracking-tight">VIGIL-AI</span>
           </div>
-          <h1 style={styles.brandTitle}>
-            <span className="text-gradient">VIGIL-AI</span>
+
+          <h1 className="text-3xl font-bold text-white tracking-tight leading-snug mb-3">
+            Secure attendance<br />for modern classrooms
           </h1>
-          <p style={styles.brandSub}>High-Security Student Attendance System</p>
-          <div style={styles.features}>
-            <FeatureItem icon="📍" text="GPS Geofencing (20m radius)" />
-            <FeatureItem icon="🔬" text="Face Recognition with Liveness" />
-            <FeatureItem icon="🤖" text="AI-Powered Chatbot" />
-            <FeatureItem icon="📊" text="Real-time Analytics Dashboard" />
+          <p className="text-sm text-gray-500 mb-10 leading-relaxed">
+            GPS geofencing and biometric face verification in one seamless flow.
+          </p>
+
+          {/* Feature list */}
+          <div className="flex flex-col gap-4">
+            {[
+              { icon: <MapPinIcon />, label: 'GPS Geofencing', desc: '20m radius classroom boundary' },
+              { icon: <FaceIcon />,   label: 'Face Verification', desc: 'DeepFace biometric matching' },
+              { icon: <BoltIcon />,   label: 'Real-time Feed',  desc: 'Live WebSocket attendance events' },
+              { icon: <BotIcon />,    label: 'AI Assistant',    desc: 'Gemini-powered classroom chatbot' },
+            ].map(({ icon, label, desc }) => (
+              <div key={label} className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center flex-shrink-0 mt-0.5">
+                  {icon}
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-gray-300">{label}</div>
+                  <div className="text-xs text-gray-600">{desc}</div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Login Card */}
-        <div className="glass-card animate-scale-in" style={styles.card}>
-          <h2 style={styles.cardTitle}>Welcome Back</h2>
-          <p style={styles.cardSub}>Sign in to continue</p>
+        {/* ── Right: Auth Card ────────────────────────────── */}
+        <div className="flex-1 w-full max-w-sm animate-scale-in">
+          <div className="card-static rounded-2xl p-8">
 
-          {/* Role Toggle */}
-          <div style={styles.toggle}>
-            <button
-              onClick={() => setRole('student')}
-              style={{
-                ...styles.toggleBtn,
-                ...(role === 'student' ? styles.toggleActive : {}),
-              }}
-            >
-              🎓 Student
-            </button>
-            <button
-              onClick={() => setRole('faculty')}
-              style={{
-                ...styles.toggleBtn,
-                ...(role === 'faculty' ? styles.toggleActive : {}),
-              }}
-            >
-              👨‍🏫 Faculty
-            </button>
-          </div>
+            <h2 className="text-lg font-semibold text-white mb-1">Sign in</h2>
+            <p className="text-xs text-gray-500 mb-6">Select your role to continue</p>
 
-          <form onSubmit={handleSubmit} style={styles.form}>
-            {role === 'student' ? (
-              <div>
-                <label className="input-label">Student ID</label>
-                <input
-                  id="student-id-input"
-                  className="input-field"
-                  type="text"
-                  placeholder="e.g. STU001"
-                  value={studentId}
-                  onChange={(e) => setStudentId(e.target.value)}
-                  required
-                />
-              </div>
-            ) : (
-              <>
+            {/* Role Toggle */}
+            <div className="flex gap-1 p-1 rounded-xl mb-6" style={{ background: 'rgba(255,255,255,0.04)' }}>
+              {[
+                { value: 'student', label: 'Student' },
+                { value: 'faculty', label: 'Faculty' },
+              ].map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => { setRole(value); setError(''); }}
+                  className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${
+                    role === value
+                      ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                      : 'text-gray-500 hover:text-gray-300'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              {role === 'student' ? (
                 <div>
-                  <label className="input-label">Email</label>
+                  <label className="input-label">Student ID</label>
                   <input
-                    id="email-input"
-                    className="input-field"
-                    type="email"
-                    placeholder="faculty@vigil.edu"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    id="student-id-input"
+                    className="input"
+                    type="text"
+                    placeholder="e.g. STU001"
+                    value={studentId}
+                    onChange={(e) => setStudentId(e.target.value)}
                     required
                   />
                 </div>
-                <div>
-                  <label className="input-label">Password</label>
-                  <input
-                    id="password-input"
-                    className="input-field"
-                    type="password"
-                    placeholder="Enter your password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </div>
-              </>
-            )}
-
-            {error && (
-              <div style={styles.error}>
-                <span>⚠️</span> {error}
-              </div>
-            )}
-
-            <button
-              id="login-submit"
-              type="submit"
-              className="btn btn-primary btn-lg w-full"
-              disabled={loading}
-              style={{ marginTop: '8px' }}
-            >
-              {loading ? (
-                <span className="spinner" style={{ width: '20px', height: '20px', borderWidth: '2px' }} />
               ) : (
-                `Sign In as ${role === 'student' ? 'Student' : 'Faculty'}`
+                <>
+                  <div>
+                    <label className="input-label">Email</label>
+                    <input
+                      id="email-input"
+                      className="input"
+                      type="email"
+                      placeholder="faculty@vigil.edu"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="input-label">Password</label>
+                    <input
+                      id="password-input"
+                      className="input"
+                      type="password"
+                      placeholder="Enter your password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+                </>
               )}
-            </button>
-          </form>
 
-          {/* Demo credentials */}
-          <div style={styles.demo}>
-            <div style={styles.demoTitle}>Demo Credentials</div>
-            {role === 'student' ? (
-              <div style={styles.demoText}>Student ID: <strong>STU001</strong></div>
-            ) : (
-              <>
-                <div style={styles.demoText}>Email: <strong>arjun.mehta@vigil.edu</strong></div>
-                <div style={styles.demoText}>Password: <strong>teacher123</strong></div>
-              </>
-            )}
+              {error && (
+                <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs text-red-400 bg-red-500/[0.08] border border-red-500/20">
+                  <WarningIcon />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              <button
+                id="login-submit"
+                type="submit"
+                className="btn-primary btn-lg w-full mt-1 rounded-xl"
+                disabled={loading}
+              >
+                {loading
+                  ? <span className="spinner" />
+                  : `Continue as ${role === 'student' ? 'Student' : 'Faculty'}`}
+              </button>
+            </form>
+
+            {/* Demo hint */}
+            <div className="mt-5 pt-5 border-t border-white/[0.06]">
+              <div className="text-xs text-gray-600 mb-2 font-medium uppercase tracking-wider">Demo credentials</div>
+              {role === 'student' ? (
+                <div className="text-xs text-gray-500">
+                  Student ID: <span className="text-gray-300 font-mono">STU001</span>
+                </div>
+              ) : (
+                <div className="text-xs text-gray-500 space-y-1">
+                  <div>Email: <span className="text-gray-300 font-mono">arjun.mehta@vigil.edu</span></div>
+                  <div>Password: <span className="text-gray-300 font-mono">teacher123</span></div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -194,156 +196,52 @@ export default function LoginPage() {
   );
 }
 
-function FeatureItem({ icon, text }) {
+/* ── Icons ─────────────────────────────────────────── */
+function ShieldIcon() {
   return (
-    <div style={styles.featureItem}>
-      <span style={{ fontSize: '1.1rem' }}>{icon}</span>
-      <span style={styles.featureText}>{text}</span>
-    </div>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    </svg>
   );
 }
-
-const styles = {
-  page: {
-    minHeight: '100vh',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    padding: '20px',
-  },
-  particles: {
-    position: 'fixed',
-    inset: 0,
-    zIndex: -1,
-    overflow: 'hidden',
-    pointerEvents: 'none',
-  },
-  particle: {
-    position: 'absolute',
-    borderRadius: '50%',
-    background: 'radial-gradient(circle, rgba(0,212,255,0.04) 0%, transparent 70%)',
-    animation: 'floatOrb 20s ease-in-out infinite',
-  },
-  container: {
-    display: 'flex',
-    gap: '60px',
-    alignItems: 'center',
-    maxWidth: '900px',
-    width: '100%',
-    zIndex: 1,
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-  },
-  brandSide: {
-    flex: '1 1 320px',
-    maxWidth: '400px',
-  },
-  logoLarge: { marginBottom: '16px' },
-  brandTitle: {
-    fontSize: '3rem',
-    fontWeight: 900,
-    letterSpacing: '-0.03em',
-    lineHeight: 1.1,
-    marginBottom: '8px',
-  },
-  brandSub: {
-    fontSize: '1rem',
-    color: '#8b95b3',
-    marginBottom: '32px',
-    fontWeight: 400,
-  },
-  features: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '14px',
-  },
-  featureItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-  },
-  featureText: {
-    fontSize: '0.9rem',
-    color: '#b0b8d0',
-    fontWeight: 400,
-  },
-  card: {
-    flex: '1 1 360px',
-    maxWidth: '420px',
-    padding: '40px',
-  },
-  cardTitle: {
-    fontSize: '1.5rem',
-    fontWeight: 700,
-    color: '#f0f4ff',
-    marginBottom: '4px',
-  },
-  cardSub: {
-    fontSize: '0.875rem',
-    color: '#8b95b3',
-    marginBottom: '24px',
-  },
-  toggle: {
-    display: 'flex',
-    gap: '4px',
-    background: 'rgba(255,255,255,0.04)',
-    borderRadius: '10px',
-    padding: '4px',
-    marginBottom: '24px',
-  },
-  toggleBtn: {
-    flex: 1,
-    padding: '10px',
-    fontSize: '0.85rem',
-    fontWeight: 600,
-    fontFamily: 'inherit',
-    border: 'none',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    background: 'transparent',
-    color: '#8b95b3',
-    transition: 'all 0.2s',
-  },
-  toggleActive: {
-    background: 'linear-gradient(135deg, rgba(0,212,255,0.15), rgba(124,58,237,0.15))',
-    color: '#00d4ff',
-    boxShadow: '0 2px 10px rgba(0,212,255,0.1)',
-  },
-  form: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '16px',
-  },
-  error: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '10px 14px',
-    fontSize: '0.8rem',
-    color: '#f43f5e',
-    background: 'rgba(244, 63, 94, 0.08)',
-    borderRadius: '8px',
-    border: '1px solid rgba(244, 63, 94, 0.15)',
-  },
-  demo: {
-    marginTop: '20px',
-    padding: '14px',
-    background: 'rgba(0,212,255,0.04)',
-    borderRadius: '10px',
-    border: '1px solid rgba(0,212,255,0.08)',
-  },
-  demoTitle: {
-    fontSize: '0.7rem',
-    fontWeight: 600,
-    color: '#00d4ff',
-    textTransform: 'uppercase',
-    letterSpacing: '0.05em',
-    marginBottom: '6px',
-  },
-  demoText: {
-    fontSize: '0.8rem',
-    color: '#8b95b3',
-    marginBottom: '2px',
-  },
-};
+function MapPinIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+      <circle cx="12" cy="10" r="3" />
+    </svg>
+  );
+}
+function FaceIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+      <line x1="9" y1="9" x2="9.01" y2="9" />
+      <line x1="15" y1="9" x2="15.01" y2="9" />
+    </svg>
+  );
+}
+function BoltIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+    </svg>
+  );
+}
+function BotIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+      <path d="M12 11V3" /><circle cx="12" cy="3" r="1" />
+    </svg>
+  );
+}
+function WarningIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+      <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  );
+}

@@ -4,19 +4,19 @@ import { useAuth } from '../context/AuthContext';
 import { verifyLocation, scanAttendance, getActiveSessions } from '../services/api';
 import Navbar from '../components/Navbar';
 
+const STEPS = ['GPS', 'Camera', 'Done'];
+
 export default function ScanPage() {
   const { user } = useAuth();
   const webcamRef = useRef(null);
 
-  const [step, setStep] = useState('loading'); // loading, no-session, gps-check, gps-fail, camera, scanning, success, error
+  const [step, setStep] = useState('loading');
   const [activeSession, setActiveSession] = useState(null);
   const [gpsResult, setGpsResult] = useState(null);
   const [scanResult, setScanResult] = useState(null);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    checkActiveSessions();
-  }, []);
+  useEffect(() => { checkActiveSessions(); }, []);
 
   const checkActiveSessions = async () => {
     try {
@@ -36,23 +36,14 @@ export default function ScanPage() {
   const checkGPS = async (session) => {
     try {
       const position = await new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true, timeout: 10000,
-        });
+        navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000 });
       });
-
       const res = await verifyLocation({
         session_id: session.id,
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
       });
-
-      setGpsResult({
-        ...res.data,
-        studentLat: position.coords.latitude,
-        studentLon: position.coords.longitude,
-      });
-
+      setGpsResult({ ...res.data, studentLat: position.coords.latitude, studentLon: position.coords.longitude });
       if (res.data.within_geofence) {
         setStep('camera');
       } else if (res.data.window_expired) {
@@ -64,18 +55,15 @@ export default function ScanPage() {
       }
     } catch (err) {
       setStep('gps-fail');
-      setError(`GPS Error: ${err.message}`);
+      setError(`Location error: ${err.message}`);
     }
   };
 
   const handleCapture = useCallback(async () => {
     if (!webcamRef.current || !activeSession) return;
-
     const imageSrc = webcamRef.current.getScreenshot();
     if (!imageSrc) return;
-
     setStep('scanning');
-
     try {
       const res = await scanAttendance({
         session_id: activeSession.id,
@@ -83,157 +71,228 @@ export default function ScanPage() {
         latitude: gpsResult.studentLat,
         longitude: gpsResult.studentLon,
       });
-
       setScanResult(res.data);
       setStep(res.data.success ? 'success' : 'error');
       if (!res.data.success) setError(res.data.message || 'Verification failed');
     } catch (err) {
       setStep('error');
-      setError(err.response?.data?.detail || 'Scan failed');
+      setError(err.response?.data?.detail || 'Scan failed. Please try again.');
     }
   }, [activeSession, gpsResult]);
+
+  const currentStepIndex = {
+    'gps-check': 0, 'gps-fail': 0, 'camera': 1, 'scanning': 1, 'success': 2, 'error': 1,
+  }[step] ?? -1;
 
   return (
     <>
       <Navbar />
-      <div className="animated-bg" />
+      <div className="max-w-xl mx-auto px-6 py-10">
 
-      <div className="page-container" style={{ maxWidth: '700px' }}>
-        <div className="animate-fade-in-up" style={{ textAlign: 'center', marginBottom: '24px' }}>
-          <h1 style={styles.pageTitle}>
-            <span className="text-gradient">Attendance Scanner</span>
-          </h1>
-          <p style={styles.pageSub}>GPS verification → Face recognition → Done</p>
+        {/* Page title */}
+        <div className="text-center mb-8 animate-fade-in-up">
+          <h1 className="text-2xl font-bold text-white tracking-tight mb-1">Attendance Scanner</h1>
+          <p className="text-sm text-gray-500">GPS verification → Face recognition → Done</p>
         </div>
 
         {/* Step indicator */}
-        <div style={styles.steps}>
-          <StepDot label="GPS" active={['gps-check', 'gps-fail'].includes(step)} done={['camera', 'scanning', 'success'].includes(step)} />
-          <div style={styles.stepLine} />
-          <StepDot label="Camera" active={['camera', 'scanning'].includes(step)} done={step === 'success'} />
-          <div style={styles.stepLine} />
-          <StepDot label="Done" active={step === 'success'} done={false} />
-        </div>
+        {step !== 'loading' && step !== 'no-session' && (
+          <div className="flex items-center justify-center gap-0 max-w-xs mx-auto mb-8 animate-fade-in-up">
+            {STEPS.map((label, i) => {
+              const done = i < currentStepIndex;
+              const active = i === currentStepIndex;
+              return (
+                <div key={label} className="flex items-center">
+                  <div className="flex flex-col items-center gap-1.5">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                      done  ? 'bg-emerald-500 text-white' :
+                      active? 'bg-blue-500 text-white ring-4 ring-blue-500/20' :
+                              'bg-white/[0.06] text-gray-600'
+                    }`}>
+                      {done ? '✓' : i + 1}
+                    </div>
+                    <span className={`text-xs font-medium ${
+                      done || active ? 'text-gray-300' : 'text-gray-600'
+                    }`}>{label}</span>
+                  </div>
+                  {i < STEPS.length - 1 && (
+                    <div className={`w-16 h-px mx-2 mb-5 transition-all ${
+                      done ? 'bg-emerald-500/50' : 'bg-white/[0.06]'
+                    }`} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
 
-        <div className="glass-card animate-scale-in" style={{ padding: '32px', marginTop: '24px' }}>
+        {/* Card content */}
+        <div className="card-static rounded-2xl p-8 animate-scale-in">
+
           {/* Loading */}
           {step === 'loading' && (
-            <div style={styles.center}>
-              <div className="spinner" />
-              <p style={styles.msg}>Checking active sessions...</p>
+            <div className="flex flex-col items-center gap-4 py-8">
+              <div className="spinner w-7 h-7" />
+              <p className="text-sm text-gray-500">Checking active sessions…</p>
             </div>
           )}
 
-          {/* No Session */}
+          {/* No session */}
           {step === 'no-session' && (
-            <div style={styles.center}>
-              <span style={{ fontSize: '3rem' }}>📭</span>
-              <h2 style={styles.stepTitle}>No Active Sessions</h2>
-              <p style={styles.msg}>No teacher has started a class session yet. Please wait for your teacher to begin.</p>
-              <button className="btn btn-ghost" onClick={checkActiveSessions} style={{ marginTop: '16px' }}>
-                🔄 Refresh
+            <div className="flex flex-col items-center text-center gap-4 py-8">
+              <div className="w-14 h-14 rounded-2xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4B5563" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-base font-semibold text-gray-300 mb-1">No Active Sessions</h2>
+                <p className="text-sm text-gray-600 max-w-xs">
+                  Your teacher hasn't started a class session yet. Please wait and try again.
+                </p>
+              </div>
+              <button className="btn-ghost rounded-xl px-5 py-2.5 text-sm" onClick={checkActiveSessions}>
+                Refresh
               </button>
             </div>
           )}
 
-          {/* GPS Check */}
+          {/* GPS checking */}
           {step === 'gps-check' && (
-            <div style={styles.center}>
-              <div className="spinner" />
-              <h2 style={styles.stepTitle}>Verifying Location</h2>
-              <p style={styles.msg}>Checking if you're within the classroom geofence...</p>
+            <div className="flex flex-col items-center text-center gap-4 py-8">
+              <div className="spinner w-7 h-7" />
+              <div>
+                <h2 className="text-base font-semibold text-gray-300 mb-1">Verifying Location</h2>
+                <p className="text-sm text-gray-600">Checking classroom geofence boundary…</p>
+              </div>
               {activeSession && (
-                <div style={styles.sessionInfo}>
-                  <span>📚 {activeSession.subject_name}</span>
-                  <span>👨‍🏫 {activeSession.faculty_name}</span>
+                <div className="flex items-center gap-4 px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.06] text-xs text-gray-500">
+                  <span>{activeSession.subject_name}</span>
+                  {activeSession.faculty_name && <><span className="text-gray-700">·</span><span>{activeSession.faculty_name}</span></>}
                 </div>
               )}
             </div>
           )}
 
-          {/* GPS Fail */}
+          {/* GPS fail */}
           {step === 'gps-fail' && (
-            <div style={styles.center}>
-              <span style={{ fontSize: '3rem' }}>📍</span>
-              <h2 style={{ ...styles.stepTitle, color: '#f43f5e' }}>Location Check Failed</h2>
-              <p style={styles.msg}>{error}</p>
+            <div className="flex flex-col items-center text-center gap-4 py-8">
+              <div className="w-14 h-14 rounded-2xl bg-red-500/[0.08] border border-red-500/20 flex items-center justify-center">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-base font-semibold text-red-400 mb-1">Location Check Failed</h2>
+                <p className="text-sm text-gray-600 max-w-xs">{error}</p>
+              </div>
               {gpsResult && (
-                <div style={styles.gpsDetails}>
-                  <div>Distance: <strong>{gpsResult.distance_meters}m</strong></div>
-                  <div>Required: <strong>≤ {gpsResult.radius_meters}m</strong></div>
+                <div className="flex gap-6 px-5 py-3 rounded-xl bg-white/[0.04] border border-white/[0.06] text-xs text-gray-500">
+                  <div>Distance: <span className="text-gray-300 font-semibold">{gpsResult.distance_meters}m</span></div>
+                  <div>Required: <span className="text-gray-300 font-semibold">≤{gpsResult.radius_meters}m</span></div>
                 </div>
               )}
-              <button className="btn btn-primary" onClick={() => checkGPS(activeSession)} style={{ marginTop: '16px' }}>
-                📍 Retry GPS Check
+              <button className="btn-primary rounded-xl px-5 py-2.5 text-sm" onClick={() => checkGPS(activeSession)}>
+                Retry GPS Check
               </button>
             </div>
           )}
 
           {/* Camera */}
           {step === 'camera' && (
-            <div style={styles.center}>
-              <div style={styles.gpsSuccess}>
-                ✅ Location verified ({gpsResult?.distance_meters}m / {gpsResult?.radius_meters}m)
+            <div className="flex flex-col items-center gap-5">
+              <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/[0.08] border border-emerald-500/20 text-xs text-emerald-400 font-medium">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                Location verified · {gpsResult?.distance_meters}m / {gpsResult?.radius_meters}m
               </div>
 
-              <div style={styles.webcamWrap}>
+              {/* Webcam */}
+              <div className="relative rounded-2xl overflow-hidden border border-white/[0.1] w-full"
+                style={{ maxWidth: 420 }}>
                 <Webcam
                   ref={webcamRef}
                   audio={false}
                   screenshotFormat="image/jpeg"
-                  screenshotQuality={0.8}
+                  screenshotQuality={0.85}
                   videoConstraints={{ facingMode: 'user', width: 480, height: 360 }}
-                  style={styles.webcam}
+                  className="w-full block"
                 />
-                <div style={styles.scanOverlay}>
-                  <div style={styles.scanFrame} />
+                {/* Scan overlay frame */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="w-44 h-56 rounded-2xl"
+                    style={{ border: '2px solid rgba(59,130,246,0.5)', boxShadow: '0 0 24px rgba(59,130,246,0.1)' }} />
                 </div>
               </div>
 
-              <p style={styles.msg}>Position your face in the frame and click scan</p>
+              <p className="text-xs text-gray-500 text-center">
+                Position your face in the frame and click Scan
+              </p>
 
-              <button
-                className="btn btn-primary btn-lg w-full"
-                onClick={handleCapture}
-                style={{ marginTop: '16px' }}
-                id="capture-btn"
-              >
-                🔬 Scan Face
+              <button id="capture-btn" className="btn-primary btn-lg w-full rounded-xl" onClick={handleCapture}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/>
+                  <line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/>
+                </svg>
+                Scan Face
               </button>
             </div>
           )}
 
           {/* Scanning */}
           {step === 'scanning' && (
-            <div style={styles.center}>
-              <div className="spinner" style={{ width: '50px', height: '50px' }} />
-              <h2 style={styles.stepTitle}>Analyzing Face...</h2>
-              <p style={styles.msg}>Running biometric verification with liveness detection</p>
+            <div className="flex flex-col items-center text-center gap-4 py-8">
+              <div className="w-14 h-14 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+                <div className="spinner w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="text-base font-semibold text-gray-300 mb-1">Analyzing Face</h2>
+                <p className="text-sm text-gray-600">Running biometric verification with liveness detection…</p>
+              </div>
             </div>
           )}
 
           {/* Success */}
           {step === 'success' && (
-            <div style={styles.center}>
-              <div style={styles.successIcon}>✅</div>
-              <h2 style={{ ...styles.stepTitle, color: '#10b981' }}>Attendance Marked!</h2>
-              <div style={styles.resultCard}>
-                <div><strong>Student:</strong> {scanResult?.student_name}</div>
-                <div><strong>ID:</strong> {scanResult?.student_id}</div>
-                <div><strong>Confidence:</strong> {((scanResult?.confidence || 0) * 100).toFixed(1)}%</div>
-                <div><strong>Liveness:</strong> {scanResult?.is_live ? '✅ Verified' : '❌ Failed'}</div>
+            <div className="flex flex-col items-center text-center gap-5 py-6">
+              <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center animate-scale-in">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-emerald-400 mb-1">Attendance Marked</h2>
+                <p className="text-sm text-gray-500">Your attendance has been recorded successfully</p>
+              </div>
+              <div className="w-full px-5 py-4 rounded-xl bg-white/[0.04] border border-white/[0.06] text-sm text-left flex flex-col gap-2.5">
+                {[
+                  { label: 'Student', value: scanResult?.student_name },
+                  { label: 'ID', value: scanResult?.student_id },
+                  { label: 'Confidence', value: `${((scanResult?.confidence || 0) * 100).toFixed(1)}%` },
+                  { label: 'Liveness', value: scanResult?.is_live ? 'Verified ✓' : 'Failed ✗' },
+                ].map(({ label, value }) => (
+                  <div key={label} className="flex justify-between">
+                    <span className="text-gray-600">{label}</span>
+                    <span className="text-gray-200 font-medium">{value}</span>
+                  </div>
+                ))}
               </div>
             </div>
           )}
 
           {/* Error */}
           {step === 'error' && (
-            <div style={styles.center}>
-              <span style={{ fontSize: '3rem' }}>❌</span>
-              <h2 style={{ ...styles.stepTitle, color: '#f43f5e' }}>Verification Failed</h2>
-              <p style={styles.msg}>{error}</p>
-              <button className="btn btn-primary" onClick={() => setStep('camera')} style={{ marginTop: '16px' }}>
-                🔄 Try Again
+            <div className="flex flex-col items-center text-center gap-4 py-8">
+              <div className="w-14 h-14 rounded-2xl bg-red-500/[0.08] border border-red-500/20 flex items-center justify-center">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-base font-semibold text-red-400 mb-1">Verification Failed</h2>
+                <p className="text-sm text-gray-600 max-w-xs">{error}</p>
+              </div>
+              <button className="btn-primary rounded-xl px-5 py-2.5 text-sm" onClick={() => setStep('camera')}>
+                Try Again
               </button>
             </div>
           )}
@@ -242,74 +301,3 @@ export default function ScanPage() {
     </>
   );
 }
-
-function StepDot({ label, active, done }) {
-  const bg = done ? '#10b981' : active ? '#00d4ff' : 'rgba(255,255,255,0.1)';
-  return (
-    <div style={{ textAlign: 'center' }}>
-      <div style={{
-        width: '32px', height: '32px', borderRadius: '50%',
-        background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: '0.8rem', fontWeight: 700, color: done || active ? '#fff' : '#8b95b3',
-        transition: 'all 0.3s',
-        boxShadow: active ? `0 0 15px ${bg}50` : 'none',
-        margin: '0 auto',
-      }}>
-        {done ? '✓' : ''}
-      </div>
-      <div style={{ fontSize: '0.65rem', color: active || done ? '#f0f4ff' : '#8b95b3', marginTop: '4px', fontWeight: 500 }}>
-        {label}
-      </div>
-    </div>
-  );
-}
-
-const styles = {
-  pageTitle: { fontSize: '2rem', fontWeight: 800 },
-  pageSub: { color: '#8b95b3', fontSize: '0.9rem', marginTop: '4px' },
-  steps: {
-    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0',
-    maxWidth: '300px', margin: '0 auto',
-  },
-  stepLine: {
-    flex: 1, height: '2px', background: 'rgba(255,255,255,0.1)', margin: '0 8px',
-  },
-  center: {
-    display: 'flex', flexDirection: 'column', alignItems: 'center',
-    textAlign: 'center', gap: '12px',
-  },
-  stepTitle: { fontSize: '1.25rem', fontWeight: 700, color: '#f0f4ff' },
-  msg: { fontSize: '0.85rem', color: '#8b95b3', maxWidth: '400px' },
-  sessionInfo: {
-    display: 'flex', gap: '16px', fontSize: '0.8rem', color: '#8b95b3',
-    padding: '10px 16px', background: 'rgba(255,255,255,0.04)', borderRadius: '8px',
-  },
-  gpsDetails: {
-    padding: '12px 20px', background: 'rgba(244,63,94,0.06)', borderRadius: '8px',
-    fontSize: '0.8rem', color: '#f0f4ff', display: 'flex', gap: '20px',
-  },
-  gpsSuccess: {
-    padding: '8px 16px', background: 'rgba(16,185,129,0.08)',
-    borderRadius: '999px', fontSize: '0.8rem', color: '#10b981', fontWeight: 500,
-  },
-  webcamWrap: {
-    position: 'relative', borderRadius: '16px', overflow: 'hidden',
-    border: '2px solid rgba(0,212,255,0.2)', width: '100%', maxWidth: '480px',
-  },
-  webcam: { width: '100%', display: 'block' },
-  scanOverlay: {
-    position: 'absolute', inset: 0, display: 'flex',
-    alignItems: 'center', justifyContent: 'center', pointerEvents: 'none',
-  },
-  scanFrame: {
-    width: '200px', height: '250px', border: '2px solid rgba(0,212,255,0.4)',
-    borderRadius: '16px',
-    boxShadow: '0 0 30px rgba(0,212,255,0.1)',
-  },
-  successIcon: { fontSize: '4rem', animation: 'scaleIn 0.5s ease-out' },
-  resultCard: {
-    padding: '16px 24px', background: 'rgba(16,185,129,0.06)',
-    borderRadius: '12px', border: '1px solid rgba(16,185,129,0.12)',
-    fontSize: '0.85rem', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '6px',
-  },
-};

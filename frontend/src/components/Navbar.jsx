@@ -1,58 +1,100 @@
-import { useAuth } from '../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+
+const NAV_ITEMS = {
+  student: [
+    { label: 'Dashboard', path: '/student', icon: GridIcon },
+    { label: 'Scan',      path: '/scan',    icon: CameraIcon },
+  ],
+  faculty: [
+    { label: 'Dashboard', path: '/teacher', icon: GridIcon },
+  ],
+};
 
 export default function Navbar() {
   const { user, logout, isStudent, isFaculty } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
-
   if (!user) return null;
 
+  const role = isFaculty ? 'faculty' : 'student';
+  const navItems = NAV_ITEMS[role] || [];
+  const homePath = isFaculty ? '/teacher' : '/student';
+
+  const handleLogout = () => { logout(); navigate('/login'); };
+
   return (
-    <nav style={styles.nav}>
-      <div style={styles.inner}>
+    <nav className="sticky top-0 z-50" style={{
+      background: 'rgba(11,16,32,0.85)',
+      backdropFilter: 'blur(20px)',
+      WebkitBackdropFilter: 'blur(20px)',
+      borderBottom: '1px solid rgba(255,255,255,0.06)',
+    }}>
+      <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between gap-8">
+
         {/* Logo */}
-        <div style={styles.logoArea} onClick={() => navigate(isStudent ? '/student' : '/teacher')}>
-          <div style={styles.logoIcon}>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="url(#navGrad)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <defs>
-                <linearGradient id="navGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#00d4ff" />
-                  <stop offset="100%" stopColor="#7c3aed" />
-                </linearGradient>
-              </defs>
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-            </svg>
+        <button
+          onClick={() => navigate(homePath)}
+          className="flex items-center gap-2.5 flex-shrink-0 hover:opacity-80 transition-opacity"
+        >
+          <div className="w-7 h-7 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+            <ShieldIcon />
           </div>
-          <span style={styles.logoText}>VIGIL-AI</span>
+          <span className="text-sm font-bold text-white tracking-tight">VIGIL-AI</span>
+        </button>
+
+        {/* Nav links */}
+        <div className="flex items-center gap-1">
+          {navItems.map(({ label, path, icon: Icon }) => {
+            const active = location.pathname === path;
+            return (
+              <button
+                key={path}
+                onClick={() => navigate(path)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  active
+                    ? 'bg-white/[0.08] text-white'
+                    : 'text-gray-500 hover:text-gray-300 hover:bg-white/[0.04]'
+                }`}
+              >
+                <Icon size={14} className={active ? 'text-blue-400' : ''} />
+                {label}
+              </button>
+            );
+          })}
         </div>
 
-        {/* Nav Links */}
-        <div style={styles.links}>
-          {isStudent && (
-            <>
-              <NavLink to="/student" current={location.pathname} label="Dashboard" />
-              <NavLink to="/scan" current={location.pathname} label="Scan" />
-            </>
-          )}
-          {isFaculty && (
-            <NavLink to="/teacher" current={location.pathname} label="Dashboard" />
-          )}
-        </div>
+        {/* Right: system status + user */}
+        <div className="flex items-center gap-3">
+          {/* System status */}
+          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/[0.08] border border-emerald-500/20">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" style={{ animation: 'pulse 2s ease-in-out infinite' }} />
+            <span className="text-xs text-emerald-400 font-medium">System Online</span>
+          </div>
 
-        {/* User info */}
-        <div style={styles.userArea}>
-          <span className={`badge ${isFaculty ? 'badge-violet' : 'badge-blue'}`}>
-            {isFaculty ? '👨‍🏫 Faculty' : '🎓 Student'}
-          </span>
-          <span style={styles.userName}>{user.user?.first_name || user.name || 'User'}</span>
-          <button onClick={handleLogout} className="btn btn-ghost btn-sm">
-            Logout
+          {/* Role badge */}
+          <div className={`px-2.5 py-1 rounded-full text-xs font-semibold border hidden sm:block ${
+            isFaculty
+              ? 'bg-violet-500/10 text-violet-400 border-violet-500/20'
+              : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+          }`}>
+            {isFaculty ? 'Faculty' : 'Student'}
+          </div>
+
+          {/* User name */}
+          <div className="w-7 h-7 rounded-full bg-white/[0.06] border border-white/[0.08] flex items-center justify-center">
+            <span className="text-xs font-semibold text-gray-300">
+              {(user.user?.first_name || user.name || 'U').charAt(0).toUpperCase()}
+            </span>
+          </div>
+
+          {/* Logout */}
+          <button
+            onClick={handleLogout}
+            className="text-xs text-gray-500 hover:text-gray-300 transition-colors px-2 py-1 rounded-lg hover:bg-white/[0.04]"
+          >
+            Sign out
           </button>
         </div>
       </div>
@@ -60,76 +102,27 @@ export default function Navbar() {
   );
 }
 
-function NavLink({ to, current, label }) {
-  const isActive = current === to;
+/* ── Icons ──────────────────────────────────────────────── */
+function ShieldIcon() {
   return (
-    <a
-      href={to}
-      onClick={(e) => { e.preventDefault(); window.location.href = to; }}
-      style={{
-        ...styles.navLink,
-        color: isActive ? '#00d4ff' : '#8b95b3',
-        borderBottom: isActive ? '2px solid #00d4ff' : '2px solid transparent',
-      }}
-    >
-      {label}
-    </a>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    </svg>
   );
 }
-
-const styles = {
-  nav: {
-    position: 'sticky',
-    top: 0,
-    zIndex: 100,
-    background: 'rgba(6, 9, 24, 0.85)',
-    backdropFilter: 'blur(20px)',
-    borderBottom: '1px solid rgba(255,255,255,0.06)',
-  },
-  inner: {
-    maxWidth: '1400px',
-    margin: '0 auto',
-    padding: '0 24px',
-    height: '64px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  logoArea: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    cursor: 'pointer',
-  },
-  logoIcon: { display: 'flex', alignItems: 'center' },
-  logoText: {
-    fontSize: '1.25rem',
-    fontWeight: 800,
-    letterSpacing: '-0.02em',
-    background: 'linear-gradient(135deg, #00d4ff, #7c3aed)',
-    WebkitBackgroundClip: 'text',
-    WebkitTextFillColor: 'transparent',
-  },
-  links: {
-    display: 'flex',
-    gap: '8px',
-  },
-  navLink: {
-    padding: '8px 16px',
-    fontSize: '0.875rem',
-    fontWeight: 500,
-    textDecoration: 'none',
-    transition: 'all 0.2s',
-    cursor: 'pointer',
-  },
-  userArea: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-  },
-  userName: {
-    fontSize: '0.875rem',
-    fontWeight: 500,
-    color: '#f0f4ff',
-  },
-};
+function GridIcon({ size = 14, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
+      <rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
+    </svg>
+  );
+}
+function CameraIcon({ size = 14, className = '' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+      <circle cx="12" cy="13" r="4" />
+    </svg>
+  );
+}
