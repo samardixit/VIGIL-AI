@@ -29,7 +29,10 @@ export default function ChatbotSidebar() {
     setInput('');
     setLoading(true);
     try {
-      const history = newMessages.map((m) => ({ role: m.role, content: m.content }));
+      const history = messages
+        .filter((m, i) => !(i === 0 && m.role === 'model'))
+        .slice(-10)
+        .map((m) => ({ role: m.role, content: m.content }));
       const res = await sendChatMessage(msg, history.slice(-10));
       setMessages((prev) => [...prev, { role: 'model', content: res.data.response }]);
     } catch {

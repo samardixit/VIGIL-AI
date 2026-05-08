@@ -3,6 +3,7 @@ VIGIL-AI Configuration Module
 Loads environment variables using Pydantic BaseSettings.
 """
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 from functools import lru_cache
 import os
@@ -21,6 +22,7 @@ class Settings(BaseSettings):
 
     # Google Gemini API
     GEMINI_API_KEY: str = "YOUR_GEMINI_API_KEY_HERE"
+    GEMINI_MODEL: str = "gemini-2.5-flash"
 
     # Geofence
     DEFAULT_GEOFENCE_RADIUS: int = 20
@@ -30,6 +32,18 @@ class Settings(BaseSettings):
     APP_HOST: str = "0.0.0.0"
     APP_PORT: int = 8000
     DEBUG: bool = True
+
+    @field_validator("DEBUG", mode="before")
+    @classmethod
+    def parse_debug(cls, value):
+        """Accept deployment words in addition to true/false."""
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"release", "prod", "production"}:
+                return False
+            if normalized in {"debug", "dev", "development"}:
+                return True
+        return value
 
     class Config:
         env_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
