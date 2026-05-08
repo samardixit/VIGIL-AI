@@ -1,6 +1,11 @@
 .venv/ 
 venv/ 
 backend/.venv/ 
+node_modules/
+frontend/node_modules/
 __pycache__/ 
 *.pyc 
 .env 
+backend/temp_frames/
+backend/student_db/ds_model_*.pkl
+backend/student_db/**/ds_model_*.pkl

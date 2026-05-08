@@ -1,6 +1,6 @@
 """
 VIGIL-AI Biometric Scanner Service
-Uses DeepFace with OpenCV for face verification and liveness detection.
+Uses DeepFace for face verification and liveness detection.
 
 DeepFace.find() scans a webcam frame against a database of known faces
 and returns match results with confidence scores. The anti_spoofing flag
@@ -8,10 +8,10 @@ uses MiniVision's Silent Face Anti-Spoofing to detect printed photos,
 screen displays, and basic mask attacks.
 """
 
-import os
 import base64
-import uuid
 import logging
+import os
+import uuid
 from typing import Optional
 
 import cv2
@@ -19,8 +19,18 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-# Path to student face database — each subdirectory is a student ID
+# Path to student face database. Each subdirectory is a student ID.
 STUDENT_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "student_db")
+
+# Facenet512 + MTCNN is more reliable than the old VGG-Face + OpenCV cache
+# for webcam scans with varied lighting, pose, and face alignment.
+FACE_MODEL_NAME = "Facenet512"
+FACE_DETECTOR_BACKEND = "mtcnn"
+FACE_DISTANCE_METRIC = "cosine"
+FACE_NORMALIZATION = "Facenet"
+FACE_EXPAND_PERCENTAGE = 10
+FACE_MATCH_THRESHOLD = 0.30
+FACE_ANTI_SPOOFING = os.getenv("FACE_ANTI_SPOOFING", "false").lower() == "true"
 
 
 def _decode_base64_image(image_base64: str) -> np.ndarray:
@@ -37,13 +47,8 @@ def _decode_base64_image(image_base64: str) -> np.ndarray:
     if "," in image_base64:
         image_base64 = image_base64.split(",")[1]
 
-    # Decode base64 to bytes
     image_bytes = base64.b64decode(image_base64)
-
-    # Convert bytes to numpy array
     nparr = np.frombuffer(image_bytes, np.uint8)
-
-    # Decode numpy array to OpenCV image
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
     if img is None:
@@ -70,6 +75,28 @@ def _cleanup_temp(path: str):
         pass
 
 
+def _extract_student_id(match_path: str) -> Optional[str]:
+    """Extract the student ID from a DeepFace match path."""
+    path_parts = match_path.replace("\\", "/").split("/")
+    for index, part in enumerate(path_parts):
+        if part == "student_db" and index + 1 < len(path_parts):
+            return path_parts[index + 1]
+    return None
+
+
+def _extract_distance(best_match) -> float:
+    """Read the distance column across DeepFace versions and cache formats."""
+    return float(
+        best_match.get(
+            "distance",
+            best_match.get(
+                f"{FACE_MODEL_NAME}_{FACE_DISTANCE_METRIC}",
+                FACE_MATCH_THRESHOLD,
+            ),
+        )
+    )
+
+
 async def verify_face(
     image_base64: str,
     student_id: Optional[str] = None,
@@ -86,27 +113,21 @@ async def verify_face(
     Args:
         image_base64: Base64-encoded webcam frame.
         student_id: Optional specific student ID to verify against.
-                   If None, searches entire database.
+            If None, searches entire database.
 
     Returns:
-        Dictionary with:
-            - verified (bool): Whether a match was found.
-            - confidence (float): Match confidence (0-1, higher = better).
-            - is_live (bool): Whether the face passed liveness detection.
-            - student_id (str | None): Matched student ID, or None if no match.
-            - message (str): Human-readable result message.
+        Dictionary with verification status, confidence, liveness, matched
+        student ID, and a human-readable message.
     """
     temp_path = None
 
     try:
-        # Lazy import DeepFace to avoid loading TF at startup
+        # Lazy import DeepFace to avoid loading TF at startup.
         from deepface import DeepFace
 
-        # Decode the webcam frame
         img = _decode_base64_image(image_base64)
         temp_path = _save_temp_image(img)
 
-        # Determine the database path to search
         if student_id:
             db_path = os.path.join(STUDENT_DB_PATH, student_id)
             if not os.path.exists(db_path):
@@ -129,87 +150,74 @@ async def verify_face(
                 "message": "Student face database not found",
             }
 
-        # Run DeepFace face search with anti-spoofing
-        # anti_spoofing=True uses MiniVision's Silent Face Anti-Spoofing model
-        # which analyzes face texture patterns to detect:
-        #   - Printed photos held up to the camera
-        #   - Digital screen displays (phone/laptop)
-        #   - Basic 3D masks
         results = DeepFace.find(
             img_path=temp_path,
             db_path=db_path,
-            model_name="VGG-Face",
+            model_name=FACE_MODEL_NAME,
+            detector_backend=FACE_DETECTOR_BACKEND,
+            distance_metric=FACE_DISTANCE_METRIC,
+            align=True,
+            normalization=FACE_NORMALIZATION,
+            expand_percentage=FACE_EXPAND_PERCENTAGE,
+            threshold=FACE_MATCH_THRESHOLD,
             enforce_detection=True,
-            anti_spoofing=False,
+            anti_spoofing=FACE_ANTI_SPOOFING,
             silent=True,
         )
 
-        # DeepFace.find() returns a list of DataFrames (one per detected face)
         if results and len(results) > 0 and len(results[0]) > 0:
             best_match = results[0].iloc[0]
-
-            # Extract the student ID from the file path
-            # Path format: student_db/STU001/face1.jpg
-            match_path = best_match["identity"]
-            path_parts = match_path.replace("\\", "/").split("/")
-
-            matched_student_id = None
-            for i, part in enumerate(path_parts):
-                if part == "student_db" and i + 1 < len(path_parts):
-                    matched_student_id = path_parts[i + 1]
-                    break
-
-            # Calculate confidence from distance (lower distance = higher confidence)
-            # VGG-Face cosine threshold is ~0.40
-            distance = float(best_match.get("distance", best_match.get("VGG-Face_cosine", 0.5)))
-            confidence = max(0.0, min(1.0, 1.0 - distance))
+            matched_student_id = _extract_student_id(best_match["identity"])
+            distance = _extract_distance(best_match)
+            confidence = max(0.0, min(1.0, 1.0 - (distance / FACE_MATCH_THRESHOLD)))
 
             return {
                 "verified": True,
                 "confidence": round(confidence, 4),
-                "is_live": True,  # Passed anti_spoofing check
-                "student_id": matched_student_id,
-                "message": f"✅ Face verified for {matched_student_id} (confidence: {confidence:.1%})",
-            }
-        else:
-            return {
-                "verified": False,
-                "confidence": 0.0,
                 "is_live": True,
-                "student_id": None,
-                "message": "❌ No matching face found in database",
+                "student_id": matched_student_id,
+                "message": (
+                    f"Face verified for {matched_student_id} "
+                    f"(confidence: {confidence:.1%})"
+                ),
             }
+
+        return {
+            "verified": False,
+            "confidence": 0.0,
+            "is_live": True,
+            "student_id": None,
+            "message": "No matching face found in database",
+        }
 
     except Exception as e:
         error_msg = str(e).lower()
 
-        # Check if it's a liveness/anti-spoofing failure
         if "spoof" in error_msg or "fake" in error_msg or "not real" in error_msg:
             return {
                 "verified": False,
                 "confidence": 0.0,
                 "is_live": False,
                 "student_id": None,
-                "message": "❌ Liveness check failed — possible spoof detected",
+                "message": "Liveness check failed - possible spoof detected",
             }
 
-        # Check if no face was detected in the frame
         if "no face" in error_msg or "could not find" in error_msg:
             return {
                 "verified": False,
                 "confidence": 0.0,
                 "is_live": False,
                 "student_id": None,
-                "message": "❌ No face detected in the frame. Please look directly at the camera.",
+                "message": "No face detected in the frame. Please look directly at the camera.",
             }
 
-        logger.error(f"Face verification error: {e}")
+        logger.error("Face verification error: %s", e)
         return {
             "verified": False,
             "confidence": 0.0,
             "is_live": False,
             "student_id": None,
-            "message": f"❌ Verification error: {str(e)}",
+            "message": f"Verification error: {str(e)}",
         }
 
     finally:
