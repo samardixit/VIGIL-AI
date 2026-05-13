@@ -71,7 +71,7 @@ ON DUPLICATE KEY UPDATE faculty_id=faculty_id;
 
 INSERT INTO students (student_id, first_name, last_name, email, phone, department, semester, face_image_path)
 VALUES
-    ('STU001', 'Aanya', 'Sharma', 'aanya.sharma@vigil.edu', '9876543210', 'Computer Science', 4, 'student_db/STU001'),
+    ('STU001', 'Aanya', 'Dixit', 'aanya.dixit@vigil.edu', '9876543210', 'Computer Science', 4, 'student_db/STU001'),
     ('STU002', 'Rohan', 'Patel', 'rohan.patel@vigil.edu', '9876543211', 'Computer Science', 4, 'student_db/STU002'),
     ('STU003', 'Priya', 'Gupta', 'priya.gupta@vigil.edu', '9876543212', 'Computer Science', 4, 'student_db/STU003'),
     ('STU004', 'Vikram', 'Singh', 'vikram.singh@vigil.edu', '9876543213', 'Electronics', 3, 'student_db/STU004'),

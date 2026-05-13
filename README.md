@@ -109,11 +109,18 @@ ACCESS_TOKEN_EXPIRE_MINUTES=60
 GEMINI_API_KEY=your_gemini_key
 ```
 
-Start the backend:
+Start the backend from the **project root**:
 
 ```bash
 uvicorn backend.main:app --reload
 ```
+
+Alternatively, you can run the helper script from the root:
+
+```bash
+python start_backend.py
+```
+
 
 ### 3. Frontend setup
 

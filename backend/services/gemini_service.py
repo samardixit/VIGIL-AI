@@ -37,45 +37,12 @@ Always respond in a helpful, concise manner.
 """
 
 PLACEHOLDER_KEYS = {"", "YOUR_GEMINI_API_KEY_HERE", "your_gemini_key"}
-FALLBACK_GEMINI_MODELS = (
-    "gemini-2.5-flash",
-    "gemini-flash-latest",
-    "gemini-2.0-flash",
-)
 
 
 def _has_valid_gemini_key() -> bool:
     """Return whether Gemini has a usable API key configured."""
     key = (settings.GEMINI_API_KEY or "").strip()
     return key not in PLACEHOLDER_KEYS
-
-
-def _candidate_model_names() -> list[str]:
-    """Return configured model plus known good fallbacks, without duplicates."""
-    seen = set()
-    candidates = []
-
-    for model_name in (settings.GEMINI_MODEL, *FALLBACK_GEMINI_MODELS):
-        model_name = (model_name or "").strip()
-        if model_name.startswith("models/"):
-            model_name = model_name.removeprefix("models/")
-        if model_name and model_name not in seen:
-            seen.add(model_name)
-            candidates.append(model_name)
-
-    return candidates
-
-
-def _is_model_not_found_error(error: Exception) -> bool:
-    """Detect stale/unsupported Gemini model names."""
-    message = str(error).lower()
-    return (
-        "model" in message
-        and (
-            "not found" in message
-            or "not supported for generatecontent" in message
-        )
-    )
 
 
 def _normalize_chat_history(
@@ -153,7 +120,7 @@ def _local_attendance_response(message: str, context: Optional[dict] = None) -> 
         return (
             "Face scan first checks the student's location, then compares the "
             "webcam image with the enrolled reference image using DeepFace. "
-            "The current backend is configured for Facenet512 with MTCNN."
+            "The current backend is configured for VGG-Face with RetinaFace."
         )
 
     if any(word in question for word in ("gps", "location", "geofence", "radius")):
@@ -204,31 +171,15 @@ async def get_chat_response(
         import google.generativeai as genai
 
         genai.configure(api_key=settings.GEMINI_API_KEY)
-        response = None
-        last_model_error = None
-        history = _normalize_chat_history(chat_history, message)
-        prompt = _build_enriched_prompt(message, context)
+        model = genai.GenerativeModel(
+            model_name=settings.GEMINI_MODEL,
+            system_instruction=SYSTEM_PROMPT,
+        )
 
-        for model_name in _candidate_model_names():
-            try:
-                model = genai.GenerativeModel(
-                    model_name=model_name,
-                    system_instruction=SYSTEM_PROMPT,
-                )
-                chat = model.start_chat(history=history)
-                response = chat.send_message(prompt)
-                break
-            except Exception as model_error:
-                if not _is_model_not_found_error(model_error):
-                    raise
-                last_model_error = model_error
-                logger.warning(
-                    "Gemini model %s is unavailable, trying fallback",
-                    model_name,
-                )
-
-        if response is None:
-            raise last_model_error or RuntimeError("No Gemini model could answer.")
+        chat = model.start_chat(
+            history=_normalize_chat_history(chat_history, message)
+        )
+        response = chat.send_message(_build_enriched_prompt(message, context))
 
         return {
             "response": response.text,

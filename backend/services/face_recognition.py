@@ -22,14 +22,14 @@ logger = logging.getLogger(__name__)
 # Path to student face database. Each subdirectory is a student ID.
 STUDENT_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "student_db")
 
-# Facenet512 + MTCNN is more reliable than the old VGG-Face + OpenCV cache
-# for webcam scans with varied lighting, pose, and face alignment.
-FACE_MODEL_NAME = "Facenet512"
-FACE_DETECTOR_BACKEND = "mtcnn"
+# VGG-Face + RetinaFace is used as a robust fallback for better compatibility
+# and superior face detection in varied environments.
+FACE_MODEL_NAME = "VGG-Face"
+FACE_DETECTOR_BACKEND = "retinaface"
 FACE_DISTANCE_METRIC = "cosine"
-FACE_NORMALIZATION = "Facenet"
-FACE_EXPAND_PERCENTAGE = 10
-FACE_MATCH_THRESHOLD = 0.30
+FACE_NORMALIZATION = "base"
+FACE_EXPAND_PERCENTAGE = 0
+FACE_MATCH_THRESHOLD = 0.40
 FACE_ANTI_SPOOFING = os.getenv("FACE_ANTI_SPOOFING", "false").lower() == "true"
 
 
