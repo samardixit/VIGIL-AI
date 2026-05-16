@@ -26,10 +26,13 @@ STUDENT_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "stud
 # and superior face detection in varied environments.
 FACE_MODEL_NAME = "VGG-Face"
 FACE_DETECTOR_BACKEND = "retinaface"
+FACE_FALLBACK_DETECTOR = "opencv"
 FACE_DISTANCE_METRIC = "cosine"
 FACE_NORMALIZATION = "base"
 FACE_EXPAND_PERCENTAGE = 0
-FACE_MATCH_THRESHOLD = 0.40
+# Default cosine threshold for VGG-Face is 0.68.
+# Previous value of 0.40 was too strict and rejected valid matches.
+FACE_MATCH_THRESHOLD = 0.68
 FACE_ANTI_SPOOFING = os.getenv("FACE_ANTI_SPOOFING", "false").lower() == "true"
 
 
@@ -150,26 +153,52 @@ async def verify_face(
                 "message": "Student face database not found",
             }
 
-        results = DeepFace.find(
-            img_path=temp_path,
-            db_path=db_path,
-            model_name=FACE_MODEL_NAME,
-            detector_backend=FACE_DETECTOR_BACKEND,
-            distance_metric=FACE_DISTANCE_METRIC,
-            align=True,
-            normalization=FACE_NORMALIZATION,
-            expand_percentage=FACE_EXPAND_PERCENTAGE,
-            threshold=FACE_MATCH_THRESHOLD,
-            enforce_detection=True,
-            anti_spoofing=FACE_ANTI_SPOOFING,
-            silent=True,
-        )
+        # Try primary detector first, fall back to opencv if it fails
+        try:
+            results = DeepFace.find(
+                img_path=temp_path,
+                db_path=db_path,
+                model_name=FACE_MODEL_NAME,
+                detector_backend=FACE_DETECTOR_BACKEND,
+                distance_metric=FACE_DISTANCE_METRIC,
+                align=True,
+                normalization=FACE_NORMALIZATION,
+                expand_percentage=FACE_EXPAND_PERCENTAGE,
+                threshold=FACE_MATCH_THRESHOLD,
+                enforce_detection=False,
+                anti_spoofing=FACE_ANTI_SPOOFING,
+                silent=True,
+            )
+        except Exception as det_err:
+            logger.warning(
+                "Primary detector (%s) failed: %s – retrying with %s",
+                FACE_DETECTOR_BACKEND, det_err, FACE_FALLBACK_DETECTOR,
+            )
+            results = DeepFace.find(
+                img_path=temp_path,
+                db_path=db_path,
+                model_name=FACE_MODEL_NAME,
+                detector_backend=FACE_FALLBACK_DETECTOR,
+                distance_metric=FACE_DISTANCE_METRIC,
+                align=True,
+                normalization=FACE_NORMALIZATION,
+                expand_percentage=FACE_EXPAND_PERCENTAGE,
+                threshold=FACE_MATCH_THRESHOLD,
+                enforce_detection=False,
+                anti_spoofing=FACE_ANTI_SPOOFING,
+                silent=True,
+            )
 
         if results and len(results) > 0 and len(results[0]) > 0:
             best_match = results[0].iloc[0]
             matched_student_id = _extract_student_id(best_match["identity"])
             distance = _extract_distance(best_match)
-            confidence = max(0.0, min(1.0, 1.0 - (distance / FACE_MATCH_THRESHOLD)))
+            # Confidence: 1.0 at distance=0, 0.0 at distance=threshold
+            confidence = max(0.0, min(1.0, 1.0 - distance / FACE_MATCH_THRESHOLD))
+            logger.info(
+                "Face match: student=%s distance=%.4f threshold=%.4f confidence=%.4f",
+                matched_student_id, distance, FACE_MATCH_THRESHOLD, confidence,
+            )
 
             return {
                 "verified": True,
